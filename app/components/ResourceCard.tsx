@@ -1,3 +1,5 @@
+"use client";
+
 import MatchScore from "./MatchScore";
 import ResourceActions from "./ResourceActions";
 
@@ -53,7 +55,7 @@ function toArray(value: unknown): string[] {
           return parsed.map(String).filter(Boolean);
         }
       } catch {
-        // Fall through.
+        // Fall through to comma-separated parsing.
       }
     }
 
@@ -112,6 +114,14 @@ function getCategoryIcon(category?: string) {
     value.includes("medical")
   ) {
     return "🏥";
+  }
+
+  if (
+    value.includes("transportation") ||
+    value.includes("transit") ||
+    value.includes("mobility")
+  ) {
+    return "🚌";
   }
 
   return "🤝";
@@ -176,11 +186,23 @@ function getWhyMatched(
     reasons.push("Transportation information available");
   }
 
+  if (resource.languages) {
+    reasons.push("Language support available");
+  }
+
   if (reasons.length === 0) {
     reasons.push("Relevant community support");
   }
 
-  return reasons.slice(0, 3);
+  return reasons.slice(0, 4);
+}
+
+function getScoreLabel(score: number) {
+  if (score >= 90) return "Excellent match";
+  if (score >= 75) return "Strong match";
+  if (score >= 60) return "Good match";
+  if (score >= 40) return "Relevant match";
+  return "Potential match";
 }
 
 export default function ResourceCard({
@@ -195,7 +217,7 @@ export default function ResourceCard({
 
   const score =
     typeof resource.matchScore === "number"
-      ? resource.matchScore
+      ? Math.max(0, Math.min(100, resource.matchScore))
       : 0;
 
   const reasons = getWhyMatched(
@@ -208,139 +230,422 @@ export default function ResourceCard({
     String(resource.verified).toLowerCase() ===
       "true";
 
+  const location =
+    resource.address ||
+    [resource.city, resource.province]
+      .filter(Boolean)
+      .join(", ");
+
   return (
-    <article className="group relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/85 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.09)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(30,64,175,0.16)] sm:p-6">
+    <article
+      aria-label={`${resource.name || "Community Resource"} resource`}
+      className="
+        group relative overflow-hidden
+        rounded-[1.75rem]
+        border border-white/80
+        bg-white/85
+        shadow-[0_18px_55px_rgba(15,23,42,0.09)]
+        backdrop-blur-xl
+        transition-all duration-300
+        hover:-translate-y-1
+        hover:border-blue-200
+        hover:shadow-[0_30px_80px_rgba(30,64,175,0.18)]
+        motion-reduce:transform-none
+        motion-reduce:transition-none
+      "
+    >
+      {/* Decorative lighting */}
       <div
         aria-hidden="true"
-        className="absolute -right-16 -top-16 h-32 w-32 rounded-full bg-blue-100/60 blur-3xl transition-transform duration-500 group-hover:scale-150"
+        className="
+          pointer-events-none absolute
+          -right-20 -top-20
+          h-44 w-44
+          rounded-full
+          bg-blue-300/20
+          blur-3xl
+          transition-transform duration-700
+          group-hover:scale-150
+          motion-reduce:transition-none
+        "
       />
 
-      <div className="relative">
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none absolute
+          -bottom-24 -left-24
+          h-48 w-48
+          rounded-full
+          bg-indigo-300/10
+          blur-3xl
+        "
+      />
+
+      <div className="relative p-5 sm:p-6">
+        {/* Header */}
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 gap-4">
+            {/* Category icon */}
             <div
               aria-hidden="true"
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-2xl shadow-lg shadow-blue-900/20"
+              className="
+                flex h-14 w-14 shrink-0
+                items-center justify-center
+                rounded-2xl
+                bg-gradient-to-br
+                from-blue-600
+                via-indigo-600
+                to-violet-600
+                text-2xl
+                shadow-lg
+                shadow-blue-900/20
+                transition-transform duration-300
+                group-hover:scale-105
+                group-hover:rotate-1
+                motion-reduce:transform-none
+                motion-reduce:transition-none
+              "
             >
               {getCategoryIcon(resource.category)}
             </div>
 
-            <div className="min-w-0">
+            {/* Title and metadata */}
+            <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-lg font-black text-slate-950 sm:text-xl">
+                <h3 className="break-words text-lg font-black leading-tight text-slate-950 sm:text-xl">
                   {resource.name || "Community Resource"}
                 </h3>
 
                 {verified && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                    <span aria-hidden="true">✓</span>
+                  <span
+                    className="
+                      inline-flex shrink-0
+                      items-center gap-1.5
+                      rounded-full
+                      border border-emerald-200
+                      bg-emerald-50
+                      px-2.5 py-1
+                      text-xs font-bold
+                      text-emerald-800
+                    "
+                    title="This resource is verified"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="
+                        flex h-4 w-4
+                        items-center justify-center
+                        rounded-full
+                        bg-emerald-600
+                        text-[10px]
+                        font-black
+                        text-white
+                      "
+                    >
+                      ✓
+                    </span>
                     Verified
                   </span>
                 )}
               </div>
 
               {resource.category && (
-                <p className="mt-1 text-sm font-semibold text-blue-700">
+                <p className="mt-1 text-sm font-bold text-blue-700">
                   {resource.category}
                 </p>
               )}
 
-              {(resource.city || resource.address) && (
-                <p className="mt-2 text-sm text-slate-600">
-                  📍{" "}
-                  {resource.address ||
-                    [resource.city, resource.province]
-                      .filter(Boolean)
-                      .join(", ")}
-                </p>
+              {location && (
+                <div className="mt-2 flex items-start gap-2 text-sm text-slate-600">
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5"
+                  >
+                    📍
+                  </span>
+
+                  <span className="leading-5">
+                    {location}
+                  </span>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="shrink-0">
+          {/* Match score */}
+          <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end">
             <MatchScore score={score} />
+
+            <span className="text-xs font-bold text-slate-500 sm:hidden">
+              {getScoreLabel(score)}
+            </span>
           </div>
         </div>
 
+        {/* Desktop score explanation */}
+        <div
+          className="
+            mt-4 hidden
+            items-center justify-end
+            gap-2
+            sm:flex
+          "
+        >
+          <span className="text-xs font-semibold text-slate-500">
+            {getScoreLabel(score)}
+          </span>
+
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 rounded-full bg-blue-400"
+          />
+
+          <span className="text-xs font-medium text-slate-500">
+            Based on your request
+          </span>
+        </div>
+
+        {/* Description */}
         {resource.description && (
           <p className="mt-5 text-sm leading-6 text-slate-600">
             {resource.description}
           </p>
         )}
 
+        {/* Why this matches */}
         {reasons.length > 0 && (
-          <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-blue-800">
-              Why this matches
-            </p>
+          <section
+            aria-labelledby={`match-reasons-${resource.id}`}
+            className="
+              mt-5 rounded-2xl
+              border border-blue-100
+              bg-gradient-to-br
+              from-blue-50/90
+              to-indigo-50/60
+              p-4
+            "
+          >
+            <div className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="
+                  flex h-7 w-7
+                  items-center justify-center
+                  rounded-lg
+                  bg-blue-600
+                  text-sm
+                  text-white
+                  shadow-sm
+                "
+              >
+                ✓
+              </span>
 
-            <ul className="space-y-1.5">
+              <h4
+                id={`match-reasons-${resource.id}`}
+                className="text-sm font-extrabold text-blue-950"
+              >
+                Why this matches
+              </h4>
+            </div>
+
+            <ul className="mt-3 space-y-2">
               {reasons.map((reason) => (
                 <li
                   key={reason}
-                  className="flex gap-2 text-sm text-blue-950"
+                  className="flex items-start gap-2 text-sm leading-5 text-blue-950"
                 >
                   <span
                     aria-hidden="true"
-                    className="font-bold text-blue-600"
+                    className="mt-0.5 font-bold text-blue-600"
                   >
                     ✓
                   </span>
-                  {reason}
+
+                  <span>{reason}</span>
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
         )}
 
+        {/* Primary services */}
         {services.length > 0 && (
-          <div className="mt-5">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+          <section
+            aria-labelledby={`services-${resource.id}`}
+            className="mt-5"
+          >
+            <h4
+              id={`services-${resource.id}`}
+              className="
+                mb-2.5
+                text-xs font-extrabold
+                uppercase tracking-wider
+                text-slate-500
+              "
+            >
               Services
-            </p>
+            </h4>
 
             <div className="flex flex-wrap gap-2">
               {services.slice(0, 6).map((service) => (
                 <span
                   key={service}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700"
+                  className="
+                    rounded-full
+                    border border-slate-200
+                    bg-slate-50
+                    px-3 py-1.5
+                    text-xs font-semibold
+                    text-slate-700
+                    transition-colors
+                    group-hover:border-blue-100
+                    group-hover:bg-blue-50
+                  "
                 >
                   {service}
                 </span>
               ))}
+
+              {services.length > 6 && (
+                <span
+                  className="
+                    rounded-full
+                    border border-blue-100
+                    bg-blue-50
+                    px-3 py-1.5
+                    text-xs font-bold
+                    text-blue-700
+                  "
+                >
+                  +{services.length - 6} more
+                </span>
+              )}
             </div>
-          </div>
+          </section>
         )}
 
+        {/* Expandable details */}
         {(languages.length > 0 ||
-          transportation.length > 0) && (
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {languages.length > 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Languages
-                </p>
-                <p className="mt-2 text-sm text-slate-700">
-                  {languages.slice(0, 5).join(", ")}
-                </p>
-              </div>
-            )}
+          transportation.length > 0 ||
+          resource.eligibility ||
+          resource.tags) && (
+          <details
+            className="
+              group/details mt-5
+              rounded-2xl
+              border border-slate-200
+              bg-slate-50/70
+              open:bg-white
+            "
+          >
+            <summary
+              className="
+                flex cursor-pointer
+                list-none items-center
+                justify-between
+                gap-4
+                rounded-2xl
+                px-4 py-3.5
+                text-sm font-bold
+                text-slate-800
+                outline-none
+                transition-colors
+                hover:bg-slate-100
+                focus-visible:ring-3
+                focus-visible:ring-blue-600
+                focus-visible:ring-offset-2
+                [&::-webkit-details-marker]:hidden
+                motion-reduce:transition-none
+              "
+            >
+              <span className="flex items-center gap-2">
+                <span aria-hidden="true">ℹ️</span>
+                More resource details
+              </span>
 
-            {transportation.length > 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Transportation
-                </p>
-                <p className="mt-2 text-sm text-slate-700">
-                  {transportation
-                    .slice(0, 5)
-                    .join(", ")}
-                </p>
-              </div>
-            )}
-          </div>
+              <span
+                aria-hidden="true"
+                className="
+                  text-lg text-slate-400
+                  transition-transform duration-200
+                  group-open/details:rotate-180
+                  motion-reduce:transition-none
+                "
+              >
+                ↓
+              </span>
+            </summary>
+
+            <div className="grid gap-3 px-4 pb-4 sm:grid-cols-2">
+              {languages.length > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                    Languages
+                  </p>
+
+                  <p className="mt-2 text-sm leading-5 text-slate-700">
+                    {languages.slice(0, 8).join(", ")}
+                  </p>
+                </div>
+              )}
+
+              {transportation.length > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                    Transportation
+                  </p>
+
+                  <p className="mt-2 text-sm leading-5 text-slate-700">
+                    {transportation.slice(0, 8).join(", ")}
+                  </p>
+                </div>
+              )}
+
+              {resource.eligibility && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2">
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                    Eligibility
+                  </p>
+
+                  <p className="mt-2 text-sm leading-5 text-slate-700">
+                    {resource.eligibility}
+                  </p>
+                </div>
+              )}
+
+              {toArray(resource.tags).length > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2">
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                    Related topics
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {toArray(resource.tags)
+                      .slice(0, 10)
+                      .map((tag) => (
+                        <span
+                          key={tag}
+                          className="
+                            rounded-full
+                            bg-slate-100
+                            px-2.5 py-1
+                            text-xs font-medium
+                            text-slate-600
+                          "
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </details>
         )}
 
+        {/* Actions */}
         <div className="mt-6 border-t border-slate-200 pt-5">
           <ResourceActions
             resource={resource}
