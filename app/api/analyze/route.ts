@@ -793,45 +793,195 @@ function getTransportationScore(
     normalizeText(
       resource.description
     ),
-  ].join(" ");
+  ]
+    .join(" ")
+    .toLowerCase();
 
   let score = 0;
 
-  if (
-    requestedTransportation &&
-    requestedTransportation !== "unknown"
-  ) {
-    if (
-      resourceTransportation.some(
-        (item) =>
-          resourceText.includes(
-            normalizeText(item)
-          )
-      )
-    ) {
-      score += 10;
-      reasons.push(
-        "Transportation needs supported"
-      );
+  /*
+   * -------------------------------------------------------
+   * TRANSPORTATION ALIASES
+   * -------------------------------------------------------
+   */
+
+  const transportationAliases: Record<
+    string,
+    string[]
+  > = {
+    "no car": [
+      "no car",
+      "without a car",
+      "public transit",
+      "public transportation",
+      "transit",
+      "bus",
+      "ttc",
+      "go transit",
+    ],
+
+    "public transit": [
+      "public transit",
+      "public transportation",
+      "transit",
+      "bus",
+      "subway",
+      "streetcar",
+      "ttc",
+      "go transit",
+    ],
+
+    ttc: [
+      "ttc",
+      "toronto transit",
+      "subway",
+      "streetcar",
+      "bus",
+    ],
+
+    "go transit": [
+      "go transit",
+      "go train",
+      "go bus",
+    ],
+
+    "accessible transportation": [
+      "accessible transportation",
+      "accessible transit",
+      "wheel-trans",
+      "wheel trans",
+      "paratransit",
+      "accessible bus",
+      "accessible transit service",
+    ],
+  };
+
+  /*
+   * -------------------------------------------------------
+   * BUILD REQUESTED TRANSPORTATION TERMS
+   * -------------------------------------------------------
+   */
+
+  const requestedTerms = new Set<string>();
+
+  if (requestedTransportation) {
+    requestedTerms.add(
+      requestedTransportation
+    );
+
+    const aliases =
+      transportationAliases[
+        requestedTransportation
+      ];
+
+    aliases?.forEach((alias) =>
+      requestedTerms.add(alias)
+    );
+  }
+
+  for (const need of requestedNeeds) {
+    requestedTerms.add(need);
+
+    const aliases =
+      transportationAliases[need];
+
+    aliases?.forEach((alias) =>
+      requestedTerms.add(alias)
+    );
+  }
+
+  /*
+   * -------------------------------------------------------
+   * RESOURCE TRANSPORTATION TERMS
+   * -------------------------------------------------------
+   */
+
+  const resourceTerms = new Set<string>();
+
+  for (const item of resourceTransportation) {
+    const normalized =
+      normalizeText(item);
+
+    if (normalized) {
+      resourceTerms.add(normalized);
     }
   }
 
-  if (
+  /*
+   * -------------------------------------------------------
+   * DIRECT TRANSPORTATION MATCH
+   * -------------------------------------------------------
+   */
+
+  let directMatch = false;
+
+  for (const requestedTerm of requestedTerms) {
+    if (!requestedTerm) {
+      continue;
+    }
+
+    if (
+      resourceTerms.has(
+        requestedTerm
+      ) ||
+      resourceText.includes(
+        requestedTerm
+      )
+    ) {
+      directMatch = true;
+      break;
+    }
+  }
+
+  if (directMatch) {
+    score += 12;
+
+    reasons.push(
+      "Transportation needs supported"
+    );
+  }
+
+  /*
+   * -------------------------------------------------------
+   * NO-CAR / PUBLIC TRANSIT
+   * -------------------------------------------------------
+   */
+
+  const needsPublicTransit =
     requestedNeeds.some(
       (need) =>
         need.includes("no car") ||
         need.includes("public transit") ||
+        need.includes("public transportation") ||
         need.includes("ttc") ||
-        need.includes("go transit")
-    )
-  ) {
-    if (
+        need.includes("go transit") ||
+        need.includes("without a car")
+    ) ||
+    requestedTransportation.includes(
+      "no car"
+    ) ||
+    requestedTransportation.includes(
+      "public transit"
+    );
+
+  if (needsPublicTransit) {
+    const transitSupported =
       resourceText.includes("transit") ||
       resourceText.includes("bus") ||
       resourceText.includes("ttc") ||
-      resourceText.includes("public transportation") ||
-      resourceText.includes("public transit")
-    ) {
+      resourceText.includes("subway") ||
+      resourceText.includes("streetcar") ||
+      resourceText.includes(
+        "public transportation"
+      ) ||
+      resourceText.includes(
+        "public transit"
+      ) ||
+      resourceText.includes(
+        "go transit"
+      );
+
+    if (transitSupported) {
       score += 15;
 
       reasons.push(
@@ -840,18 +990,52 @@ function getTransportationScore(
     }
   }
 
-  if (
+  /*
+   * -------------------------------------------------------
+   * ACCESSIBLE TRANSPORTATION
+   * -------------------------------------------------------
+   */
+
+  const needsAccessibleTransportation =
     requestedNeeds.some(
       (need) =>
-        need.includes("accessible transportation")
-    )
-  ) {
-    if (
-      resourceText.includes("accessible") ||
-      resourceText.includes("paratransit") ||
-      resourceText.includes("wheel-trans")
-    ) {
-      score += 15;
+        need.includes(
+          "accessible transportation"
+        ) ||
+        need.includes(
+          "wheel-trans"
+        ) ||
+        need.includes(
+          "paratransit"
+        )
+    ) ||
+    requestedTransportation.includes(
+      "accessible transportation"
+    );
+
+  if (needsAccessibleTransportation) {
+    const accessibleSupported =
+      resourceText.includes(
+        "accessible transportation"
+      ) ||
+      resourceText.includes(
+        "accessible transit"
+      ) ||
+      resourceText.includes(
+        "paratransit"
+      ) ||
+      resourceText.includes(
+        "wheel-trans"
+      ) ||
+      resourceText.includes(
+        "wheel trans"
+      ) ||
+      resourceText.includes(
+        "accessible bus"
+      );
+
+    if (accessibleSupported) {
+      score += 18;
 
       reasons.push(
         "Accessible transportation support"
@@ -861,7 +1045,9 @@ function getTransportationScore(
 
   return {
     score,
-    reasons: uniqueStrings(reasons),
+    reasons: uniqueStrings(
+      reasons
+    ),
   };
 }
 
@@ -886,7 +1072,7 @@ function getLanguageScore(
   const resourceLanguages =
     normalizeArray(
       resource.languages
-    );
+    ).map(normalizeText);
 
   if (
     requestedLanguages.length === 0 ||
@@ -898,15 +1084,146 @@ function getLanguageScore(
     };
   }
 
+  /*
+   * -------------------------------------------------------
+   * LANGUAGE ALIASES
+   * -------------------------------------------------------
+   */
+
+  const languageAliases: Record<
+    string,
+    string[]
+  > = {
+    english: [
+      "english",
+      "en",
+    ],
+
+    en: [
+      "english",
+      "en",
+    ],
+
+    french: [
+      "french",
+      "fr",
+    ],
+
+    fr: [
+      "french",
+      "fr",
+    ],
+
+    spanish: [
+      "spanish",
+      "español",
+      "es",
+    ],
+
+    es: [
+      "spanish",
+      "español",
+      "es",
+    ],
+
+    punjabi: [
+      "punjabi",
+      "pa",
+    ],
+
+    hindi: [
+      "hindi",
+      "hi",
+    ],
+
+    urdu: [
+      "urdu",
+      "ur",
+    ],
+
+    arabic: [
+      "arabic",
+      "ar",
+    ],
+
+    mandarin: [
+      "mandarin",
+      "chinese",
+      "zh",
+    ],
+
+    chinese: [
+      "chinese",
+      "mandarin",
+      "zh",
+    ],
+
+    tamil: [
+      "tamil",
+      "ta",
+    ],
+
+    bengali: [
+      "bengali",
+      "bangla",
+      "bn",
+    ],
+
+    portuguese: [
+      "portuguese",
+      "pt",
+    ],
+
+    russian: [
+      "russian",
+      "ru",
+    ],
+
+    ukrainian: [
+      "ukrainian",
+      "uk",
+    ],
+
+    korean: [
+      "korean",
+      "ko",
+    ],
+  };
+
+  /*
+   * -------------------------------------------------------
+   * CHECK LANGUAGE COMPATIBILITY
+   * -------------------------------------------------------
+   */
+
   const matches =
     requestedLanguages.filter(
-      (language) =>
-        resourceLanguages.some(
-          (resourceLanguage) =>
-            normalizeText(
-              resourceLanguage
-            ) === language
-        )
+      (requestedLanguage) => {
+        const requestedAliases =
+          languageAliases[
+            requestedLanguage
+          ] || [
+            requestedLanguage,
+          ];
+
+        return resourceLanguages.some(
+          (resourceLanguage) => {
+            const resourceAliases =
+              languageAliases[
+                resourceLanguage
+              ] || [
+                resourceLanguage,
+              ];
+
+            return requestedAliases.some(
+              (requestedAlias) =>
+                resourceAliases.includes(
+                  requestedAlias
+                )
+            );
+          }
+        );
+      }
     );
 
   if (matches.length > 0) {
@@ -915,7 +1232,7 @@ function getLanguageScore(
     );
 
     return {
-      score: 8,
+      score: 10,
       reasons,
     };
   }

@@ -97,7 +97,7 @@ export default function Home() {
               "application/json",
           },
           body: JSON.stringify({
-            message: trimmedRequest,
+            request: trimmedRequest,
           }),
         });
 
