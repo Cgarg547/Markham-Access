@@ -637,6 +637,10 @@ Built as an AI-powered community-accessibility project focused on improving how 
 
 ## 📄 License
 
-Add the project's chosen license here before publishing the repository as an open-source project.
+## 📄 License
 
-If no license has been selected yet, the repository should not claim a specific open-source license.
+This project is licensed under the **MIT License**.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software, subject to the terms of the MIT License.
+
+See the [LICENSE](LICENSE) file for the full license text.
