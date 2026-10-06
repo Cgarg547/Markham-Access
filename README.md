@@ -603,8 +603,6 @@ Built as an AI-powered community-accessibility project focused on improving how 
 
 ## 📄 License
 
-## 📄 License
-
 This project is licensed under the **MIT License**.
 
 You are free to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software, subject to the terms of the MIT License.
