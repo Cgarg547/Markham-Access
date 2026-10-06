@@ -91,7 +91,7 @@ function normalizeArray(value: unknown): string[] {
             .filter(Boolean);
         }
       } catch {
-        // Continue below.
+        // Continue with comma-separated parsing.
       }
     }
 
@@ -135,67 +135,24 @@ function dedupeResources(
   const result: Resource[] = [];
 
   for (const resource of resources) {
-    /*
-     * We intentionally use several fields to identify
-     * the same organization.
-     *
-     * This handles cases where the same organization was
-     * imported more than once with different Firestore IDs.
-     */
+    const nameKey = normalizeText(
+      resource.name || ""
+    )
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
 
-    const typedResource =
-      resource as Resource & {
-        name?: string;
-        address?: string;
-        phone?: string;
-      };
+    const addressKey = normalizeText(
+      resource.address || ""
+    )
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
 
-    const nameKey =
-      normalizeText(
-        typedResource.name ||
-          resource.id ||
-          ""
-      )
-        .replace(
-          /[^a-z0-9]+/g,
-          " "
-        )
-        .trim();
+    const phoneKey = normalizeText(
+      resource.phone || ""
+    ).replace(/[^0-9]+/g, "");
 
-    const addressKey =
-      normalizeText(
-        typedResource.address ||
-          ""
-      )
-        .replace(
-          /[^a-z0-9]+/g,
-          " "
-        )
-        .trim();
-
-    const phoneKey =
-      normalizeText(
-        typedResource.phone ||
-          ""
-      )
-        .replace(
-          /[^0-9]+/g,
-          ""
-        );
-
-    /*
-     * Primary identity:
-     *
-     * Organization name is normally the strongest
-     * indicator that two records represent the same
-     * organization.
-     */
     let identityKey = nameKey;
 
-    /*
-     * If the resource does not have a useful name,
-     * fall back to address or phone.
-     */
     if (!identityKey) {
       identityKey =
         addressKey ||
@@ -203,11 +160,6 @@ function dedupeResources(
         resource.id;
     }
 
-    /*
-     * Some records may have a generic/empty name.
-     * In that case, combining address + phone gives
-     * us a safer identity.
-     */
     if (
       identityKey === "community services" ||
       identityKey === "community centre" ||
@@ -287,7 +239,9 @@ const HALTON_REGION_CITIES = [
  * LOCATION NORMALIZATION
  * ======================================================= */
 
-function normalizeLocationName(location: string): string {
+function normalizeLocationName(
+  location: string
+): string {
   const normalized = normalizeText(location);
 
   if (normalized === "northyork") {
@@ -306,7 +260,8 @@ function normalizeLocationName(location: string): string {
  * ======================================================= */
 
 function getRegion(location: string): string {
-  const normalized = normalizeLocationName(location);
+  const normalized =
+    normalizeLocationName(location);
 
   if (
     normalized === "toronto" ||
@@ -315,19 +270,27 @@ function getRegion(location: string): string {
     return "Toronto";
   }
 
-  if (YORK_REGION_CITIES.includes(normalized)) {
+  if (
+    YORK_REGION_CITIES.includes(normalized)
+  ) {
     return "York Region";
   }
 
-  if (PEEL_REGION_CITIES.includes(normalized)) {
+  if (
+    PEEL_REGION_CITIES.includes(normalized)
+  ) {
     return "Peel Region";
   }
 
-  if (DURHAM_REGION_CITIES.includes(normalized)) {
+  if (
+    DURHAM_REGION_CITIES.includes(normalized)
+  ) {
     return "Durham Region";
   }
 
-  if (HALTON_REGION_CITIES.includes(normalized)) {
+  if (
+    HALTON_REGION_CITIES.includes(normalized)
+  ) {
     return "Halton Region";
   }
 
@@ -345,68 +308,67 @@ function getLocationScore(
   score: number;
   reasons: string[];
 } {
-  const requestedLocation = normalizeLocationName(
-    analysis.location
-  );
+  const requestedLocation =
+    normalizeLocationName(
+      analysis.location || ""
+    );
 
-  const requestedSearchArea = normalizeLocationName(
-    analysis.searchArea
-  );
+  const requestedSearchArea =
+    normalizeLocationName(
+      analysis.searchArea || ""
+    );
 
-  const resourceCity = normalizeLocationName(
-    resource.city || ""
-  );
+  const resourceCity =
+    normalizeLocationName(
+      resource.city || ""
+    );
 
-  const resourceDistrict = normalizeLocationName(
-    resource.district || ""
-  );
+  const resourceDistrict =
+    normalizeLocationName(
+      resource.district || ""
+    );
 
-  const resourceRegion = normalizeText(
-    resource.region || getRegion(resourceCity)
-  );
+  const resourceRegion =
+    normalizeText(
+      resource.region ||
+        getRegion(resourceCity)
+    );
 
-  const requestedRegion = normalizeText(
-    getRegion(requestedLocation)
-  );
+  const requestedRegion =
+    normalizeText(
+      getRegion(requestedLocation)
+    );
 
   const reasons: string[] = [];
-
-  /*
-   * Exact district match.
-   */
 
   if (
     requestedLocation &&
     resourceDistrict &&
     resourceDistrict === requestedLocation
   ) {
-    reasons.push("Located in requested area");
+    reasons.push(
+      "Located in requested area"
+    );
 
     return {
       score: 45,
       reasons,
     };
   }
-
-  /*
-   * Exact city match.
-   */
 
   if (
     requestedLocation &&
     resourceCity === requestedLocation
   ) {
-    reasons.push("Located in requested city");
+    reasons.push(
+      "Located in requested city"
+    );
 
     return {
       score: 45,
       reasons,
     };
   }
-
-  /*
-   * Resource city matches search area.
-   */
 
   if (
     requestedSearchArea &&
@@ -422,16 +384,14 @@ function getLocationScore(
     };
   }
 
-  /*
-   * Same region.
-   */
-
   if (
     requestedRegion &&
     resourceRegion &&
     requestedRegion === resourceRegion
   ) {
-    reasons.push("Serves the same GTA region");
+    reasons.push(
+      "Serves the same GTA region"
+    );
 
     return {
       score: 28,
@@ -439,15 +399,14 @@ function getLocationScore(
     };
   }
 
-  /*
-   * Toronto district fallback.
-   */
-
   if (
-    requestedRegion.toLowerCase() === "toronto" &&
+    requestedRegion.toLowerCase() ===
+      "toronto" &&
     resourceCity === "toronto"
   ) {
-    reasons.push("Toronto-wide service");
+    reasons.push(
+      "Toronto-wide service"
+    );
 
     return {
       score: 25,
@@ -455,24 +414,25 @@ function getLocationScore(
     };
   }
 
-  /*
-   * GTA-wide resource.
-   */
-
-  const coverage = normalizeArray(
-    resource.coverageArea
-  );
+  const coverage =
+    normalizeArray(
+      resource.coverageArea
+    );
 
   if (
     coverage.some(
       (area) =>
-        normalizeText(area).includes("gta") ||
+        normalizeText(area).includes(
+          "gta"
+        ) ||
         normalizeText(area).includes(
           "greater toronto"
         )
     )
   ) {
-    reasons.push("Serves the GTA");
+    reasons.push(
+      "Serves the GTA"
+    );
 
     return {
       score: 18,
@@ -480,27 +440,33 @@ function getLocationScore(
     };
   }
 
-  /*
-   * Province-wide / Ontario-wide.
-   */
+  const resourceDescription =
+    normalizeText(
+      resource.description
+    );
 
-  const resourceDescription = normalizeText(
-    resource.description
-  );
-
-  const resourceTags = normalizeArray(
-    resource.tags
-  );
+  const resourceTags =
+    normalizeArray(
+      resource.tags
+    );
 
   if (
-    resourceDescription.includes("ontario") ||
+    resourceDescription.includes(
+      "ontario"
+    ) ||
     resourceTags.some(
       (tag) =>
-        tag.includes("ontario-wide") ||
-        tag.includes("provincial")
+        tag.includes(
+          "ontario-wide"
+        ) ||
+        tag.includes(
+          "provincial"
+        )
     )
   ) {
-    reasons.push("Ontario-wide resource");
+    reasons.push(
+      "Ontario-wide resource"
+    );
 
     return {
       score: 10,
@@ -515,6 +481,10 @@ function getLocationScore(
 }
 
 /* =========================================================
+ * HARD RELEVANCE FILTER
+ * ======================================================= */
+
+/* =========================================================
  * NEED SCORE
  * ======================================================= */
 
@@ -527,21 +497,25 @@ function getNeedScore(
 } {
   const reasons: string[] = [];
 
-  const resourceCategory = normalizeText(
-    resource.category
-  );
+  const resourceCategory =
+    normalizeText(
+      resource.category
+    );
 
-  const resourceDescription = normalizeText(
-    resource.description
-  );
+  const resourceDescription =
+    normalizeText(
+      resource.description
+    );
 
-  const resourceServices = normalizeArray(
-    resource.services
-  );
+  const resourceServices =
+    normalizeArray(
+      resource.services
+    );
 
-  const resourceTags = normalizeArray(
-    resource.tags
-  );
+  const resourceTags =
+    normalizeArray(
+      resource.tags
+    );
 
   const resourceText = [
     resourceCategory,
@@ -554,7 +528,10 @@ function getNeedScore(
 
   let score = 0;
 
-  const needAliases: Record<string, string[]> = {
+  const needAliases: Record<
+    string,
+    string[]
+  > = {
     employment: [
       "employment",
       "job",
@@ -711,19 +688,26 @@ function getNeedScore(
     ],
   };
 
-  for (const need of analysis.needs) {
-    const normalizedNeed = normalizeText(need);
+  for (
+    const need of analysis.needs || []
+  ) {
+    const normalizedNeed =
+      normalizeText(need);
 
     const aliases =
-      needAliases[normalizedNeed] || [
+      needAliases[
+        normalizedNeed
+      ] || [
         normalizedNeed,
       ];
 
-    const matches = aliases.filter((alias) =>
-      resourceText.includes(
-        normalizeText(alias)
-      )
-    );
+    const matches =
+      aliases.filter(
+        (alias) =>
+          resourceText.includes(
+            normalizeText(alias)
+          )
+      );
 
     if (matches.length > 0) {
       score += 25;
@@ -734,15 +718,13 @@ function getNeedScore(
     }
   }
 
-  /*
-   * Strong category-specific boost.
-   */
-
   if (
-    analysis.needs.some(
+    (analysis.needs || []).some(
       (need) =>
         normalizeText(need) ===
-        normalizeText(resourceCategory)
+        normalizeText(
+          resourceCategory
+        )
     )
   ) {
     score += 10;
@@ -750,7 +732,8 @@ function getNeedScore(
 
   return {
     score,
-    reasons: uniqueStrings(reasons),
+    reasons:
+      uniqueStrings(reasons),
   };
 }
 
@@ -769,13 +752,13 @@ function getTransportationScore(
 
   const requestedTransportation =
     normalizeText(
-      analysis.transportation
+      analysis.transportation || ""
     );
 
   const requestedNeeds =
-    analysis.transportationNeeds.map(
-      normalizeText
-    );
+    (analysis.transportationNeeds ||
+      []
+    ).map(normalizeText);
 
   const resourceTransportation =
     normalizeArray(
@@ -798,12 +781,6 @@ function getTransportationScore(
     .toLowerCase();
 
   let score = 0;
-
-  /*
-   * -------------------------------------------------------
-   * TRANSPORTATION ALIASES
-   * -------------------------------------------------------
-   */
 
   const transportationAliases: Record<
     string,
@@ -856,13 +833,8 @@ function getTransportationScore(
     ],
   };
 
-  /*
-   * -------------------------------------------------------
-   * BUILD REQUESTED TRANSPORTATION TERMS
-   * -------------------------------------------------------
-   */
-
-  const requestedTerms = new Set<string>();
+  const requestedTerms =
+    new Set<string>();
 
   if (requestedTransportation) {
     requestedTerms.add(
@@ -874,31 +846,32 @@ function getTransportationScore(
         requestedTransportation
       ];
 
-    aliases?.forEach((alias) =>
-      requestedTerms.add(alias)
+    aliases?.forEach(
+      (alias) =>
+        requestedTerms.add(alias)
     );
   }
 
-  for (const need of requestedNeeds) {
+  for (
+    const need of requestedNeeds
+  ) {
     requestedTerms.add(need);
 
     const aliases =
       transportationAliases[need];
 
-    aliases?.forEach((alias) =>
-      requestedTerms.add(alias)
+    aliases?.forEach(
+      (alias) =>
+        requestedTerms.add(alias)
     );
   }
 
-  /*
-   * -------------------------------------------------------
-   * RESOURCE TRANSPORTATION TERMS
-   * -------------------------------------------------------
-   */
+  const resourceTerms =
+    new Set<string>();
 
-  const resourceTerms = new Set<string>();
-
-  for (const item of resourceTransportation) {
+  for (
+    const item of resourceTransportation
+  ) {
     const normalized =
       normalizeText(item);
 
@@ -907,15 +880,11 @@ function getTransportationScore(
     }
   }
 
-  /*
-   * -------------------------------------------------------
-   * DIRECT TRANSPORTATION MATCH
-   * -------------------------------------------------------
-   */
-
   let directMatch = false;
 
-  for (const requestedTerm of requestedTerms) {
+  for (
+    const requestedTerm of requestedTerms
+  ) {
     if (!requestedTerm) {
       continue;
     }
@@ -941,21 +910,23 @@ function getTransportationScore(
     );
   }
 
-  /*
-   * -------------------------------------------------------
-   * NO-CAR / PUBLIC TRANSIT
-   * -------------------------------------------------------
-   */
-
   const needsPublicTransit =
     requestedNeeds.some(
       (need) =>
         need.includes("no car") ||
-        need.includes("public transit") ||
-        need.includes("public transportation") ||
+        need.includes(
+          "public transit"
+        ) ||
+        need.includes(
+          "public transportation"
+        ) ||
         need.includes("ttc") ||
-        need.includes("go transit") ||
-        need.includes("without a car")
+        need.includes(
+          "go transit"
+        ) ||
+        need.includes(
+          "without a car"
+        )
     ) ||
     requestedTransportation.includes(
       "no car"
@@ -966,11 +937,21 @@ function getTransportationScore(
 
   if (needsPublicTransit) {
     const transitSupported =
-      resourceText.includes("transit") ||
-      resourceText.includes("bus") ||
-      resourceText.includes("ttc") ||
-      resourceText.includes("subway") ||
-      resourceText.includes("streetcar") ||
+      resourceText.includes(
+        "transit"
+      ) ||
+      resourceText.includes(
+        "bus"
+      ) ||
+      resourceText.includes(
+        "ttc"
+      ) ||
+      resourceText.includes(
+        "subway"
+      ) ||
+      resourceText.includes(
+        "streetcar"
+      ) ||
       resourceText.includes(
         "public transportation"
       ) ||
@@ -990,12 +971,6 @@ function getTransportationScore(
     }
   }
 
-  /*
-   * -------------------------------------------------------
-   * ACCESSIBLE TRANSPORTATION
-   * -------------------------------------------------------
-   */
-
   const needsAccessibleTransportation =
     requestedNeeds.some(
       (need) =>
@@ -1013,7 +988,9 @@ function getTransportationScore(
       "accessible transportation"
     );
 
-  if (needsAccessibleTransportation) {
+  if (
+    needsAccessibleTransportation
+  ) {
     const accessibleSupported =
       resourceText.includes(
         "accessible transportation"
@@ -1045,9 +1022,8 @@ function getTransportationScore(
 
   return {
     score,
-    reasons: uniqueStrings(
-      reasons
-    ),
+    reasons:
+      uniqueStrings(reasons),
   };
 }
 
@@ -1066,7 +1042,7 @@ function getLanguageScore(
 
   const requestedLanguages =
     uniqueStrings(
-      analysis.languages
+      analysis.languages || []
     ).map(normalizeText);
 
   const resourceLanguages =
@@ -1083,12 +1059,6 @@ function getLanguageScore(
       reasons,
     };
   }
-
-  /*
-   * -------------------------------------------------------
-   * LANGUAGE ALIASES
-   * -------------------------------------------------------
-   */
 
   const languageAliases: Record<
     string,
@@ -1190,12 +1160,6 @@ function getLanguageScore(
     ],
   };
 
-  /*
-   * -------------------------------------------------------
-   * CHECK LANGUAGE COMPATIBILITY
-   * -------------------------------------------------------
-   */
-
   const matches =
     requestedLanguages.filter(
       (requestedLanguage) => {
@@ -1256,7 +1220,7 @@ function getUserTypeScore(
 } {
   const userType =
     normalizeText(
-      analysis.userType
+      analysis.userType || ""
     );
 
   if (!userType) {
@@ -1348,7 +1312,7 @@ function getUrgencyScore(
 } {
   const urgency =
     normalizeText(
-      analysis.urgency
+      analysis.urgency || ""
     );
 
   if (
@@ -1443,6 +1407,271 @@ function getVerificationScore(
 }
 
 /* =========================================================
+ * HARD RELEVANCE FILTER
+ * ======================================================= */
+
+function resourceMatchesRequestedNeeds(
+  resource: Resource,
+  analysis: AccessAIAnalysis
+): boolean {
+  const requestedNeeds =
+    analysis.needs
+      .map((need) =>
+        normalizeText(need)
+      )
+      .filter(Boolean);
+
+  /*
+   * If Gemini did not identify a need,
+   * do not aggressively filter.
+   */
+  if (
+    requestedNeeds.length === 0
+  ) {
+    return true;
+  }
+
+  const resourceText = [
+    normalizeText(
+      resource.name
+    ),
+    normalizeText(
+      resource.category
+    ),
+    normalizeText(
+      resource.description
+    ),
+    ...normalizeArray(
+      resource.services
+    ).map(normalizeText),
+    ...normalizeArray(
+      resource.tags
+    ).map(normalizeText),
+  ].join(" ");
+
+  const needKeywords: Record<
+    string,
+    string[]
+  > = {
+    food: [
+      "food",
+      "food bank",
+      "food assistance",
+      "groceries",
+      "grocery",
+      "meal",
+      "meals",
+      "food security",
+      "food pantry",
+      "emergency food",
+    ],
+
+    housing: [
+      "housing",
+      "shelter",
+      "rent",
+      "homeless",
+      "eviction",
+      "affordable housing",
+      "community housing",
+      "housing support",
+    ],
+
+    "financial assistance": [
+      "financial",
+      "financial assistance",
+      "money",
+      "income assistance",
+      "ontario works",
+      "emergency assistance",
+      "utility assistance",
+    ],
+
+    employment: [
+      "employment",
+      "job",
+      "career",
+      "work",
+      "resume",
+      "job search",
+      "employment support",
+    ],
+
+    language: [
+      "language",
+      "english",
+      "esl",
+      "language support",
+      "english classes",
+    ],
+
+    "newcomer support": [
+      "newcomer",
+      "immigrant",
+      "settlement",
+      "refugee",
+    ],
+
+    transportation: [
+      "transportation",
+      "transit",
+      "bus",
+      "subway",
+      "streetcar",
+      "ttc",
+      "go transit",
+      "accessible transportation",
+      "paratransit",
+      "mobility",
+    ],
+
+    health: [
+      "health",
+      "healthcare",
+      "medical",
+      "clinic",
+      "doctor",
+      "health support",
+    ],
+
+    childcare: [
+      "childcare",
+      "child care",
+      "daycare",
+      "day care",
+      "children",
+      "family support",
+    ],
+
+    legal: [
+      "legal",
+      "lawyer",
+      "legal assistance",
+    ],
+
+    "mental health": [
+      "mental health",
+      "counselling",
+      "counseling",
+      "crisis",
+    ],
+
+    "disability support": [
+      "disability",
+      "disabled",
+      "accessible",
+      "wheelchair",
+      "mobility",
+    ],
+
+    "senior support": [
+      "senior",
+      "seniors",
+      "elderly",
+      "older adult",
+    ],
+
+    "youth support": [
+      "youth",
+      "young person",
+      "teen",
+    ],
+
+    clothing: [
+      "clothing",
+      "clothes",
+      "winter clothes",
+    ],
+
+    utilities: [
+      "utility",
+      "utilities",
+      "hydro",
+      "electricity",
+      "utility bill",
+    ],
+
+    "emergency assistance": [
+      "emergency",
+      "crisis",
+      "urgent",
+      "immediate assistance",
+    ],
+  };
+
+  /*
+   * Transportation is slightly different.
+   *
+   * If transportation is requested alongside another
+   * need, transportation alone should NOT make a resource
+   * relevant.
+   */
+
+  const nonTransportationNeeds =
+    requestedNeeds.filter(
+      (need) =>
+        need !== "transportation"
+    );
+
+  /*
+   * If the user only requested transportation,
+   * transportation relevance is sufficient.
+   */
+  if (
+    nonTransportationNeeds.length === 0
+  ) {
+    const transportationKeywords =
+      needKeywords.transportation;
+
+    return transportationKeywords.some(
+      (keyword) =>
+        resourceText.includes(keyword)
+    );
+  }
+
+  /*
+   * For multiple needs, require at least
+   * one PRIMARY non-transportation need.
+   */
+  /*
+ * For multiple needs, require at least
+ * one PRIMARY non-transportation need.
+ */
+const matchesNeed =
+  nonTransportationNeeds.some(
+    (need) => {
+      const keywords =
+        needKeywords[need];
+
+      if (!keywords) {
+        return false;
+      }
+
+      return keywords.some(
+        (keyword) =>
+          resourceText.includes(keyword)
+      );
+    }
+  );
+
+/*
+ * A resource must satisfy the requested need.
+ */
+if (!matchesNeed) {
+  return false;
+}
+
+/*
+ * If the user specified a location,
+ * the resource must also serve that location.
+ */
+return resourceServesRequestedLocation(
+  resource,
+  analysis
+);
+}
+
+/* =========================================================
  * MAIN RESOURCE SCORER
  * ======================================================= */
 
@@ -1452,7 +1681,14 @@ function scoreResource(
 ): {
   score: number;
   reasons: string[];
+  relevant: boolean;
 } {
+  const relevant =
+    resourceMatchesRequestedNeeds(
+      resource,
+      analysis
+    );
+
   const location =
     getLocationScore(
       resource,
@@ -1517,6 +1753,7 @@ function scoreResource(
   return {
     score,
     reasons,
+    relevant,
   };
 }
 
@@ -1530,7 +1767,7 @@ function getFallbackLevel(
 ): number {
   const requestedLocation =
     normalizeLocationName(
-      analysis.location
+      analysis.location || ""
     );
 
   const requestedRegion =
@@ -1554,6 +1791,7 @@ function getFallbackLevel(
 
   if (
     resourceCity ===
+    requestedLocation &&
     requestedLocation
   ) {
     return 4;
@@ -1562,7 +1800,8 @@ function getFallbackLevel(
   if (
     normalizeLocationName(
       resource.district || ""
-    ) === requestedLocation
+    ) === requestedLocation &&
+    requestedLocation
   ) {
     return 4;
   }
@@ -1622,6 +1861,262 @@ function getFallbackLevel(
 }
 
 /* =========================================================
+ * STRICT LOCATION RELEVANCE
+ * ======================================================= */
+
+function resourceServesRequestedLocation(
+  resource: Resource,
+  analysis: AccessAIAnalysis
+): boolean {
+  const requestedLocation =
+    normalizeLocationName(
+      analysis.location || ""
+    );
+
+  /*
+   * If the user did not provide a location,
+   * location should not block a relevant resource.
+   */
+  if (
+    !requestedLocation ||
+    requestedLocation === "unknown"
+  ) {
+    return true;
+  }
+
+  const resourceCity =
+    normalizeLocationName(
+      resource.city || ""
+    );
+
+  const resourceDistrict =
+    normalizeLocationName(
+      resource.district || ""
+    );
+
+  const coverageAreas =
+    normalizeArray(
+      resource.coverageArea
+    ).map(normalizeLocationName);
+
+  const resourceText = [
+    normalizeText(resource.name),
+    normalizeText(resource.category),
+    normalizeText(resource.description),
+    ...normalizeArray(resource.services),
+    ...normalizeArray(resource.tags),
+    ...coverageAreas,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  /*
+   * -------------------------------------------------------
+   * 1. EXACT CITY
+   * -------------------------------------------------------
+   */
+
+  if (
+    resourceCity === requestedLocation
+  ) {
+    return true;
+  }
+
+  /*
+   * -------------------------------------------------------
+   * 2. EXACT DISTRICT
+   * -------------------------------------------------------
+   */
+
+  if (
+    resourceDistrict ===
+    requestedLocation
+  ) {
+    return true;
+  }
+
+  /*
+   * -------------------------------------------------------
+   * 3. EXPLICIT COVERAGE
+   * -------------------------------------------------------
+   *
+   * A resource located elsewhere can still be relevant
+   * if its coverageArea explicitly names the requested
+   * city/district.
+   */
+
+  if (
+    coverageAreas.some(
+      (area) =>
+        area === requestedLocation ||
+        area.includes(requestedLocation) ||
+        requestedLocation.includes(area)
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * -------------------------------------------------------
+   * 4. EXPLICIT LOCATION IN RESOURCE DATA
+   * -------------------------------------------------------
+   *
+   * This handles resources whose coverage is stored in
+   * description/services/tags rather than coverageArea.
+   *
+   * IMPORTANT:
+   * We only accept the requested location itself here.
+   * We do NOT treat "GTA", "Ontario", or another city
+   * as automatically serving the requested city.
+   */
+
+  if (
+    resourceText.includes(
+      requestedLocation
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * -------------------------------------------------------
+   * 5. REGIONAL COVERAGE
+   * -------------------------------------------------------
+   *
+   * York Region:
+   * Markham, Richmond Hill, Vaughan, Newmarket, Aurora,
+   * etc.
+   *
+   * Durham:
+   * Pickering, Ajax, Whitby, Oshawa, etc.
+   *
+   * Peel:
+   * Brampton, Mississauga.
+   *
+   * Halton:
+   * Oakville, Burlington, Milton.
+   *
+   * We only allow this when the resource explicitly
+   * identifies itself as serving that region.
+   */
+
+  const requestedRegion =
+    getRegion(
+      requestedLocation
+    );
+
+  if (
+    requestedRegion
+  ) {
+    const regionalTerms: Record<
+      string,
+      string[]
+    > = {
+      york: [
+        "york region",
+        "york regional",
+        "york region-wide",
+      ],
+
+      durham: [
+        "durham region",
+        "durham regional",
+        "durham region-wide",
+      ],
+
+      peel: [
+        "peel region",
+        "peel regional",
+        "peel region-wide",
+      ],
+
+      halton: [
+        "halton region",
+        "halton regional",
+        "halton region-wide",
+      ],
+
+      toronto: [
+        "toronto",
+        "city of toronto",
+      ],
+    };
+
+    const terms =
+      regionalTerms[
+        requestedRegion
+      ] || [];
+
+    if (
+      terms.some(
+        (term) =>
+          resourceText.includes(term)
+      )
+    ) {
+      return true;
+    }
+  }
+
+  /*
+   * -------------------------------------------------------
+   * 6. GTA-WIDE COVERAGE
+   * -------------------------------------------------------
+   *
+   * Only accept GTA-wide resources when the data
+   * explicitly says they serve the GTA.
+   */
+
+  if (
+    coverageAreas.some(
+      (area) =>
+        area.includes("gta") ||
+        area.includes(
+          "greater toronto"
+        )
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * Also recognize explicit GTA-wide wording in
+   * resource metadata.
+   */
+
+  if (
+    resourceText.includes(
+      "gta-wide"
+    ) ||
+    resourceText.includes(
+      "greater toronto area"
+    ) ||
+    resourceText.includes(
+      "greater toronto area-wide"
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * -------------------------------------------------------
+   * 7. GENERIC RESOURCES
+   * -------------------------------------------------------
+   *
+   * We deliberately do NOT automatically allow:
+   *
+   * - Ontario-wide
+   * - another city in the GTA
+   * - "public transit"
+   * - generic community services
+   *
+   * Those are not proof that the resource serves the
+   * user's requested location.
+   */
+
+  return false;
+}
+
+/* =========================================================
  * SORTING
  * ======================================================= */
 
@@ -1629,7 +2124,7 @@ function sortResources(
   resources: Resource[],
   analysis: AccessAIAnalysis
 ): Resource[] {
-  return resources.sort(
+  return [...resources].sort(
     (a, b) => {
       const fallbackA =
         getFallbackLevel(
@@ -1728,11 +2223,29 @@ export async function POST(
     const body =
       await request.json();
 
+    /*
+     * IMPORTANT:
+     *
+     * page.tsx sends:
+     *
+     * {
+     *   request: trimmedRequest
+     * }
+     *
+     * We therefore read body.request first.
+     *
+     * body.message is also supported for backwards
+     * compatibility.
+     */
+
     const userRequest =
-      typeof body?.message ===
+      typeof body?.request ===
       "string"
-        ? body.message.trim()
-        : "";
+        ? body.request.trim()
+        : typeof body?.message ===
+            "string"
+          ? body.message.trim()
+          : "";
 
     if (!userRequest) {
       return NextResponse.json(
@@ -1867,6 +2380,9 @@ export async function POST(
 
             matchReasons:
               result.reasons,
+
+            isRelevant:
+              result.relevant,
           };
         }
       );
@@ -1877,9 +2393,77 @@ export async function POST(
      * -------------------------------------------------------
      */
 
+    const relevantResources =
+      rankedResources.filter(
+        (resource) =>
+          resource.isRelevant === true && 
+          resourceServesRequestedLocation(
+            resource,
+            analysis
+          )
+      );
+
+    console.log(
+  "========== RELEVANCE FILTER =========="
+);
+
+console.log(
+  "Requested needs:",
+  analysis.needs
+);
+
+console.log(
+  "Relevant resources:",
+  relevantResources.map(
+    (resource) => ({
+      name:
+        resource.name,
+
+      score:
+        resource.matchScore,
+
+      relevant:
+        resource.isRelevant,
+
+      reasons:
+        resource.matchReasons,
+    })
+  )
+);
+
+console.log(
+  "========== LOCATION FILTER =========="
+);
+
+console.log(
+  "Requested location:",
+  analysis.location
+);
+
+console.log(
+  "Location-eligible resources:",
+  rankedResources
+    .filter((resource) =>
+      resourceServesRequestedLocation(
+        resource,
+        analysis
+      )
+    )
+    .map((resource) => ({
+      name: resource.name,
+      city: resource.city,
+      district: resource.district,
+      score: resource.matchScore,
+    }))
+);
+
+console.log(
+  "======================================="
+);
+
     const sortedResources =
       sortResources(
-        rankedResources,
+        relevantResources,
         analysis
       );
 
@@ -1931,12 +2515,8 @@ export async function POST(
      * -------------------------------------------------------
      */
 
-    let matchedResources =
-      sortedResources.filter(
-        (resource) =>
-          (resource.matchScore || 0) >=
-          45
-      );
+    let matchedResources = 
+     [...sortedResources];
 
     /*
      * -------------------------------------------------------
@@ -1953,41 +2533,38 @@ export async function POST(
      */
 
     if (
-      matchedResources.length <
-      3
-    ) {
-      const fallbackPool = [
-        ...exactLocationResources,
-        ...sameRegionResources,
-        ...gtaResources,
-        ...ontarioResources,
-      ];
+  matchedResources.length <
+  3
+) {
+  const fallbackPool =
+    sortedResources;
 
-      const fallbackIds =
-        new Set<string>();
+  const fallbackIds =
+    new Set<string>();
 
-      matchedResources =
-        [
-          ...matchedResources,
-          ...fallbackPool,
-        ].filter(
-          (resource) => {
-            if (
-              fallbackIds.has(
-                resource.id
-              )
-            ) {
-              return false;
-            }
+  matchedResources =
+    [
+      ...matchedResources,
+      ...fallbackPool,
+    ]
+      .filter((resource) => {
+        if (
+          fallbackIds.has(
+            resource.id
+          )
+        ) {
+          return false;
+        }
 
-            fallbackIds.add(
-              resource.id
-            );
-
-            return true;
-          }
+        fallbackIds.add(
+          resource.id
         );
-    }
+
+        return true;
+      })
+      .slice(0, 5);
+}
+     
 
     /*
      * -------------------------------------------------------
@@ -2008,48 +2585,42 @@ export async function POST(
 
     /*
      * -------------------------------------------------------
-     * 11. FINAL SORT + LIMIT
+     * 11. DEDUPLICATE RESOURCES
+     * -------------------------------------------------------
+     *
+     * Sort first so the strongest version of a duplicate
+     * organization is kept.
+     */
+
+    matchedResources =
+      sortResources(
+        matchedResources,
+        analysis
+      );
+
+    matchedResources =
+      dedupeResources(
+        matchedResources
+      );
+
+    /*
+     * -------------------------------------------------------
+     * 12. FINAL SORT + LIMIT
      * -------------------------------------------------------
      */
 
-    /*
- * -------------------------------------------------------
- * 11. DEDUPLICATE RESOURCES
- * -------------------------------------------------------
- *
- * Multiple Firestore records can represent the same
- * organization. Sort first so the strongest version
- * of a duplicate is kept.
- */
+    matchedResources =
+      sortResources(
+        matchedResources,
+        analysis
+      ).slice(
+        0,
+        8
+      );
 
-matchedResources =
-  sortResources(
-    matchedResources,
-    analysis
-  );
-
-matchedResources =
-  dedupeResources(
-    matchedResources
-  );
-
-/*
- * -------------------------------------------------------
- * 12. FINAL SORT + LIMIT
- * -------------------------------------------------------
- */
-
-matchedResources =
-  sortResources(
-    matchedResources,
-    analysis
-  ).slice(
-    0,
-    8
-  );
     /*
      * -------------------------------------------------------
-     * 12. FINAL DEBUG
+     * 13. FINAL DEBUG
      * -------------------------------------------------------
      */
 
@@ -2143,7 +2714,7 @@ matchedResources =
 
     /*
      * -------------------------------------------------------
-     * 13. RESPONSE
+     * 14. RESPONSE
      * -------------------------------------------------------
      */
 
@@ -2179,20 +2750,24 @@ matchedResources =
       },
     });
   } catch (
-    error: any
+    error: unknown
   ) {
     console.error(
       "Analysis error:",
       error
     );
 
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Something went wrong while analyzing your request.";
+
     return NextResponse.json(
       {
         success: false,
 
         error:
-          error?.message ||
-          "Something went wrong while analyzing your request.",
+          errorMessage,
       },
       {
         status: 500,
