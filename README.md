@@ -543,24 +543,6 @@ The project status documentation records successful TypeScript compilation check
 
 These capabilities are documented as substantially complete in the current project status.
 
-### Next
-
-- [ ] Accessibility & UX QA
-- [ ] Keyboard-only testing
-- [ ] Screen-reader testing
-- [ ] Contrast verification
-- [ ] Search/results polish
-- [ ] Improved match explanations
-- [ ] Data-quality cleanup
-- [ ] Expanded GTA/Ontario resource coverage
-- [ ] Firebase security-rule hardening
-- [ ] API/Gemini failure handling
-- [ ] Rate limiting
-- [ ] Production build testing
-- [ ] Final screenshots and documentation
-
-The current project roadmap identifies these as the remaining areas of work.
-
 ---
 
 ## 🎯 Project Goals
@@ -581,22 +563,6 @@ Match scores and reasons help explain recommendations.
 
 **More accessible**  
 The interface is designed with keyboard access, responsive layouts, reduced motion, and clear interaction states in mind.
-
----
-
-## 📸 Screenshots
-
-Screenshots can be added here as the final UI presentation is completed.
-
-Recommended screenshots:
-
-1. Landing/search interface
-2. Example natural-language request
-3. AI analysis / results
-4. Resource cards
-5. Match score and explanation
-6. Mobile layout
-7. Accessibility-focused interface
 
 ---
 
