@@ -20,6 +20,7 @@ export default function AccessAIHeader() {
             <div className="text-lg font-extrabold tracking-tight text-slate-900">
               AccessAI
             </div>
+
             <div className="text-xs font-medium text-slate-500">
               Community Resource Finder
             </div>
@@ -51,6 +52,7 @@ export default function AccessAIHeader() {
             className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition-all duration-200 hover:border-blue-300 hover:bg-blue-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/40 sm:px-4"
           >
             <span aria-hidden="true">♿</span>
+
             <span className="ml-1 hidden sm:inline">
               Accessibility
             </span>

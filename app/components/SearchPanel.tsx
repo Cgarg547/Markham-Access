@@ -13,7 +13,7 @@ type SearchPanelProps = {
   onSubmit: (
     event: FormEvent<HTMLFormElement>
   ) => Promise<void>;
-  onExample: (example: string) => void;
+  onExample: (example: string) => Promise<void>;
 };
 
 const examples = [
@@ -95,7 +95,10 @@ export default function SearchPanel({
                 </>
               ) : (
                 <>
-                  <span aria-hidden="true" className="mr-2">
+                  <span
+                    aria-hidden="true"
+                    className="mr-2"
+                  >
                     ✦
                   </span>
                   Find Resources

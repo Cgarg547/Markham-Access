@@ -1,6 +1,7 @@
 type Analysis = {
   userType?: string;
   location?: string;
+  searchArea?: string;
   transportation?: string;
   urgency?: string;
   needs?: string[];
@@ -47,8 +48,10 @@ export default function ResultsHeader({
       </div>
 
       {(analysis?.location ||
+        analysis?.searchArea ||
         analysis?.transportation ||
         analysis?.urgency ||
+        analysis?.detectedLanguage ||
         needs.length > 0) && (
         <div className="mt-5 flex flex-wrap gap-2">
           {analysis?.location && (
@@ -56,6 +59,13 @@ export default function ResultsHeader({
               📍 {analysis.location}
             </span>
           )}
+
+          {analysis?.searchArea &&
+            analysis.searchArea !== analysis.location && (
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm">
+                🗺️ Search area: {analysis.searchArea}
+              </span>
+            )}
 
           {analysis?.transportation && (
             <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm">
@@ -66,6 +76,12 @@ export default function ResultsHeader({
           {analysis?.urgency && (
             <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm">
               ⏱️ {analysis.urgency} urgency
+            </span>
+          )}
+
+          {analysis?.detectedLanguage && (
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm">
+              🌐 {analysis.detectedLanguage}
             </span>
           )}
 

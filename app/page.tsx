@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  FormEvent,
-  useState,
-} from "react";
+import { FormEvent, useState } from "react";
 
 import AccessAIHeader from "./components/AccessAIHeader";
 import BackgroundEffects from "./components/BackgroundEffects";
@@ -60,27 +57,21 @@ type ApiResponse = {
 
 export default function Home() {
   const [request, setRequest] = useState("");
-  const [result, setResult] =
-    useState<ApiResponse | null>(null);
+  const [result, setResult] = useState<ApiResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
-    const trimmedRequest =
-      request.trim();
+  /**
+   * Main AI analysis function.
+   *
+   * Sends the user's natural-language request
+   * to the Gemini-powered /api/analyze endpoint.
+   */
+  async function analyzeRequest(requestText: string) {
+    const trimmedRequest = requestText.trim();
 
     if (!trimmedRequest) {
-      setError(
-        "Please describe what you need help with."
-      );
+      setError("Please describe what you need help with.");
       return;
     }
 
@@ -89,25 +80,27 @@ export default function Home() {
     setResult(null);
 
     try {
-      const response =
-        await fetch("/api/analyze", {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            request: trimmedRequest,
-          }),
-        });
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          request: trimmedRequest,
+        }),
+      });
 
-      const data: ApiResponse =
-        await response.json();
+      let data: ApiResponse;
 
-      if (
-        !response.ok ||
-        !data.success
-      ) {
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response. Please try again."
+        );
+      }
+
+      if (!response.ok || !data.success) {
         throw new Error(
           data.error ||
             "Something went wrong while analyzing your request."
@@ -116,10 +109,7 @@ export default function Home() {
 
       setResult(data);
     } catch (err) {
-      console.error(
-        "AccessAI request failed:",
-        err
-      );
+      console.error("AccessAI request failed:", err);
 
       setError(
         err instanceof Error
@@ -131,36 +121,48 @@ export default function Home() {
     }
   }
 
-  function handleExample(
-    example: string
+  /**
+   * Handles the main search form submission.
+   */
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
   ) {
-    setRequest(example);
+    event.preventDefault();
 
-    setError("");
-
-    window.setTimeout(() => {
-      const form =
-        document.getElementById(
-          "access-ai-search-form"
-        ) as HTMLFormElement | null;
-
-      form?.requestSubmit();
-    }, 50);
+    await analyzeRequest(request);
   }
 
-  const analysis =
-    result?.analysis;
+  /**
+   * Handles example prompts from SearchPanel.
+   *
+   * This fixes the previous:
+   *
+   * ReferenceError: handleExample is not defined
+   *
+   * The example is placed into the search field and
+   * immediately analyzed.
+   */
+  async function handleExample(example: string) {
+    const trimmedExample = example.trim();
 
-  const resources =
-    result?.resources ?? [];
+    if (!trimmedExample) {
+      return;
+    }
+
+    setRequest(trimmedExample);
+
+    await analyzeRequest(trimmedExample);
+  }
+
+  const analysis = result?.analysis;
+
+  const resources = result?.resources ?? [];
 
   const hasResults =
-    Boolean(result) &&
-    resources.length > 0;
+    Boolean(result) && resources.length > 0;
 
   const hasNoResults =
-    Boolean(result) &&
-    resources.length === 0;
+    Boolean(result) && resources.length === 0;
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-slate-50 text-slate-950">
@@ -179,6 +181,7 @@ export default function Home() {
         id="main-content"
         className="relative z-10"
       >
+        {/* HERO / SEARCH */}
         <section
           aria-labelledby="hero-heading"
           className="mx-auto w-full max-w-7xl px-4 pb-10 pt-10 sm:px-6 sm:pt-14 lg:px-8 lg:pt-20"
@@ -198,9 +201,8 @@ export default function Home() {
               id="hero-heading"
               className="text-balance text-4xl font-black tracking-tight text-slate-950 sm:text-5xl lg:text-6xl"
             >
-              Find the right
+              Find the right{" "}
               <span className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                {" "}
                 community resource
               </span>
               .
@@ -271,25 +273,19 @@ export default function Home() {
           </div>
         </section>
 
+        {/* RESULTS AREA */}
         <section
           aria-live="polite"
           aria-busy={loading}
           className="mx-auto w-full max-w-7xl px-4 pb-20 sm:px-6 lg:px-8"
         >
-          {loading && (
-            <LoadingState />
-          )}
+          {loading && <LoadingState />}
 
           {!loading && error && (
             <ErrorState
               message={error}
               onRetry={() => {
-                const form =
-                  document.getElementById(
-                    "access-ai-search-form"
-                  ) as HTMLFormElement | null;
-
-                form?.requestSubmit();
+                void analyzeRequest(request);
               }}
             />
           )}
@@ -347,9 +343,7 @@ export default function Home() {
               <div className="space-y-7">
                 <ResultsHeader
                   analysis={analysis}
-                  resultCount={
-                    resources.length
-                  }
+                  resultCount={resources.length}
                 />
 
                 <div
@@ -358,10 +352,7 @@ export default function Home() {
                   aria-label="Matching community resources"
                 >
                   {resources.map(
-                    (
-                      resource,
-                      index
-                    ) => (
+                    (resource, index) => (
                       <div
                         key={
                           resource.id ||
@@ -377,12 +368,8 @@ export default function Home() {
                         }}
                       >
                         <ResourceCard
-                          resource={
-                            resource
-                          }
-                          analysis={
-                            analysis
-                          }
+                          resource={resource}
+                          analysis={analysis}
                         />
                       </div>
                     )
@@ -402,154 +389,205 @@ export default function Home() {
               </div>
             )}
         </section>
+
+        {/* ABOUT ACCESSAI */}
         <section
-  id="about"
-  aria-labelledby="about-heading"
-  className="mx-auto mt-20 max-w-6xl px-4 pb-10 sm:px-6 lg:px-8"
->
-  <div className="overflow-hidden rounded-3xl border border-blue-100 bg-white/80 p-6 shadow-xl shadow-blue-900/5 backdrop-blur-xl sm:p-10">
-    <div className="grid gap-8 md:grid-cols-[1fr_1.5fr] md:items-center">
-      <div>
-        <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-700">
-          About AccessAI
-        </span>
-
-        <h2
-          id="about-heading"
-          className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900"
+          id="about"
+          aria-labelledby="about-heading"
+          className="mx-auto mt-10 max-w-6xl scroll-mt-28 px-4 pb-12 sm:px-6 lg:px-8"
         >
-          Finding the right community support should be easier.
-        </h2>
-      </div>
+          <div className="overflow-hidden rounded-3xl border border-blue-100 bg-white/80 p-6 shadow-xl shadow-blue-900/5 backdrop-blur-xl sm:p-10">
+            <div className="grid gap-8 md:grid-cols-[1fr_1.5fr] md:items-center">
+              <div>
+                <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-700">
+                  About AccessAI
+                </span>
 
-      <div className="space-y-4 text-base leading-7 text-slate-600">
-        <p>
-          AccessAI helps people describe what they need in
-          everyday language and discover relevant community
-          resources.
-        </p>
+                <h2
+                  id="about-heading"
+                  className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900"
+                >
+                  Connecting people
+                  to support that
+                  actually fits.
+                </h2>
+              </div>
 
-        <p>
-          Results are organized around factors such as location,
-          services, transportation, language, and other available
-          resource information.
-        </p>
+              <div className="space-y-4 text-sm leading-7 text-slate-600 sm:text-base">
+                <p>
+                  AccessAI is designed to
+                  make community support
+                  easier to discover.
+                  Instead of searching
+                  through dozens of
+                  websites, users can
+                  describe what they need
+                  in everyday language.
+                </p>
 
-        <p className="font-semibold text-slate-800">
-          Our goal is to make community information easier to
-          understand, navigate, and access.
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
+                <p>
+                  AccessAI analyzes the
+                  request and considers
+                  factors such as location,
+                  needs, transportation,
+                  language, and urgency
+                  to surface relevant
+                  community resources.
+                </p>
 
-<section
-  id="accessibility"
-  aria-labelledby="accessibility-heading"
-  className="mx-auto max-w-6xl px-4 pb-20 sm:px-6 lg:px-8"
->
-  <div className="overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-6 shadow-xl shadow-indigo-900/5 sm:p-10">
-    <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-      <div className="max-w-2xl">
-        <span className="inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-700">
-          Accessibility
-        </span>
+                <p>
+                  The goal is simple:
+                  reduce the effort required
+                  to find help and make
+                  community services more
+                  accessible.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
-        <h2
-          id="accessibility-heading"
-          className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900"
+        {/* ACCESSIBILITY */}
+        <section
+          id="accessibility"
+          aria-labelledby="accessibility-heading"
+          className="mx-auto max-w-6xl scroll-mt-28 px-4 pb-20 sm:px-6 lg:px-8"
         >
-          Designed with accessibility in mind.
-        </h2>
+          <div className="overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-white/90 via-blue-50/80 to-indigo-50/80 p-6 shadow-xl shadow-indigo-900/5 backdrop-blur-xl sm:p-10">
+            <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+              <div>
+                <span className="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-700">
+                  <span aria-hidden="true">
+                    ♿
+                  </span>
+                  Accessibility
+                </span>
 
-        <p className="mt-4 text-base leading-7 text-slate-600">
-          AccessAI follows accessibility-conscious design
-          principles so that people can navigate and interact
-          with the application using different devices and input
-          methods.
-        </p>
+                <h2
+                  id="accessibility-heading"
+                  className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900"
+                >
+                  Designed to be
+                  accessible to more
+                  people.
+                </h2>
+
+                <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
+                  AccessAI is built with
+                  accessibility in mind so
+                  people can search for
+                  community support using
+                  different devices,
+                  interaction methods and
+                  communication needs.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+                  <div
+                    aria-hidden="true"
+                    className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-lg"
+                  >
+                    ⌨️
+                  </div>
+
+                  <h3 className="font-bold text-slate-900">
+                    Keyboard friendly
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Navigation and interactive
+                    elements are designed to
+                    work with keyboard
+                    interaction and visible
+                    focus states.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+                  <div
+                    aria-hidden="true"
+                    className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-lg"
+                  >
+                    🔊
+                  </div>
+
+                  <h3 className="font-bold text-slate-900">
+                    Screen reader aware
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Semantic sections,
+                    labels, headings and
+                    status information help
+                    assistive technologies
+                    understand the interface.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+                  <div
+                    aria-hidden="true"
+                    className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-lg"
+                  >
+                    👁️
+                  </div>
+
+                  <h3 className="font-bold text-slate-900">
+                    Clear visual hierarchy
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    High-contrast text,
+                    structured headings and
+                    clearly separated content
+                    make information easier to
+                    scan and understand.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+                  <div
+                    aria-hidden="true"
+                    className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-lg"
+                  >
+                    📱
+                  </div>
+
+                  <h3 className="font-bold text-slate-900">
+                    Responsive design
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    The interface adapts to
+                    desktop, tablet and mobile
+                    screen sizes so users can
+                    access the service on
+                    different devices.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-indigo-100 bg-white/80 p-5">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-indigo-700">
+                Accessibility commitment
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Accessibility is an ongoing
+                part of the AccessAI design
+                process. We aim to continue
+                improving usability,
+                readability, keyboard
+                navigation and compatibility
+                with assistive technologies.
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
-
-      <div className="grid w-full max-w-xl gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-sm">
-          <div className="text-2xl" aria-hidden="true">
-            ⌨️
-          </div>
-          <h3 className="mt-3 font-bold text-slate-900">
-            Keyboard navigation
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Interactive controls are designed to remain usable
-            without requiring a mouse.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-sm">
-          <div className="text-2xl" aria-hidden="true">
-            👁️
-          </div>
-          <h3 className="mt-3 font-bold text-slate-900">
-            Visible focus
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Focus indicators help users understand where they are
-            on the page.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-sm">
-          <div className="text-2xl" aria-hidden="true">
-            🎨
-          </div>
-          <h3 className="mt-3 font-bold text-slate-900">
-            High contrast
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Text and interactive elements use contrast-conscious
-            colour choices.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white bg-white/80 p-5 shadow-sm">
-          <div className="text-2xl" aria-hidden="true">
-            🧭
-          </div>
-          <h3 className="mt-3 font-bold text-slate-900">
-            Clear structure
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Headings, landmarks, labels, and logical sections make
-            the interface easier to navigate.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <div className="mt-8 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-5">
-      <p className="text-sm leading-6 text-indigo-950">
-        <strong>Reduced motion:</strong> AccessAI respects your
-        device's reduced-motion preference and minimizes
-        animations when it is enabled.
-      </p>
-    </div>
-  </div>
-</section>
-      </div>
-
-      <footer className="relative z-10 border-t border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-center text-xs text-slate-500 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 lg:text-left">
-          <p>
-            AccessAI — helping people
-            discover community support.
-          </p>
-
-          <p>
-            Designed with accessibility
-            and inclusive access in mind.
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }
